@@ -1,3 +1,3 @@
 # -*- coding: utf-8 -*-
 
-from .pelican_semantic import *
+from .go_semantic import *
