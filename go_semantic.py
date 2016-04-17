@@ -29,8 +29,6 @@ class SemanticHTMLTranslator(PelicanHTMLTranslator):
         else:
             self.body.append('</code>\n')
 
-    # remove nested section
-
     def visit_section(self, node):
         self.section_level += 1
 
@@ -105,13 +103,15 @@ class SemanticHTMLTranslator(PelicanHTMLTranslator):
     def visit_transition(self, node):
         self.body.append(self.starttag(node, 'hr'))
 
-    # Clean Tables and HTML5 specs
-    # remove colgroup
-
     def visit_table(self, node):
-        classes = [cls.strip(' \t\n')
-                   for cls in self.settings.table_style.split(',')]
-        tag = self.starttag(node, 'table', CLASS=' '.join(classes))
+        style = ''
+        if not node['classes']:
+            if self.settings.table_style:
+                style = self.settings.table_style.strip()
+            else:
+                style = 'ui celled table'
+
+        tag = self.starttag(node, 'table', CLASS=style)
         self.body.append(tag)
 
     def depart_table(self, node):
@@ -147,8 +147,39 @@ class SemanticHTMLTranslator(PelicanHTMLTranslator):
                     self.compact_field_list = False
                     break
         self.body.append(self.starttag(node, 'table',
-                                       CLASS='docutils field-list'))
+                                       CLASS='ui definition table'))
         self.body.append('<tbody>\n')
+
+    def visit_field_name(self, node):
+        atts = {}
+        if self.in_docinfo:
+            atts['class'] = 'docinfo-name'
+
+        if ( self.settings.field_name_limit
+             and len(node.astext()) > self.settings.field_name_limit):
+            atts['colspan'] = 2
+            self.context.append('</tr>\n'
+                                + self.starttag(node.parent, 'tr', '',
+                                                CLASS='')
+                                + '<td>&nbsp;</td>')
+        else:
+            self.context.append('')
+        self.body.append(self.starttag(node, 'td', '', **atts))
+
+    def visit_field_body(self, node):
+        self.body.append(self.starttag(node, 'td', '', CLASS=''))
+        self.set_class_on_child(node, 'first', 0)
+        field = node.parent
+        if (self.compact_field_list or
+            isinstance(field.parent, nodes.docinfo) or
+            field.parent.index(field) == len(field.parent) - 1):
+            # If we are in a compact list, the docinfo, or if this is
+            # the last field of the field list, do not add vertical
+            # space after last element.
+            self.set_class_on_child(node, 'last', -1)
+
+    def visit_field(self, node):
+        self.body.append(self.starttag(node, 'tr', '', CLASS=''))
 
     def visit_footnote(self, node):
         self.body.append(self.starttag(node, 'table',
